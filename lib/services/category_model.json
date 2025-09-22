@@ -1,0 +1,32 @@
+
+{
+  "categories": [
+    {
+      "name": "Cappuccino"
+    },
+    {
+      "name": "Espresso"
+    },
+    {
+      "name": "Latte"
+    },
+    {
+      "name": "Mocha"
+    },
+    {
+      "name": "Americano"
+    },
+    {
+      "name": "Macchiato"
+    },
+    {
+      "name": "Frappe"
+    },
+    {
+      "name": "Iced Coffee"
+    },
+    {
+      "name": "Tea"
+    }
+  ]
+}

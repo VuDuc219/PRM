@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:myapp/consts/firebase_consts.dart';
+import 'package:myapp/controllers/auth_controller.dart';
 import 'package:myapp/views/auth_screen/login_screen.dart';
+import 'package:velocity_x/velocity_x.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -15,6 +19,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _retypePasswordController = TextEditingController();
   bool _agreeToTerms = false;
+  final controller = Get.put(AuthController());
 
   @override
   Widget build(BuildContext context) {
@@ -190,13 +195,35 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Widget _buildSignupButton() {
     return ElevatedButton(
-      onPressed: () {
-        if (_formKey.currentState!.validate() && _agreeToTerms) {
-          // Call signup API
-        }
-      },
+      onPressed: _agreeToTerms
+          ? () async {
+              if (_formKey.currentState!.validate()) {
+                try {
+                  final userCredential = await controller.signupMethod(
+                    context: context,
+                    email: _emailController.text,
+                    password: _passwordController.text,
+                  );
+
+                  if (userCredential != null) {
+                    await controller.storeUserData(
+                      email: _emailController.text,
+                      password: _passwordController.text,
+                      name: _nameController.text,
+                    );
+
+                    VxToast.show(context, msg: "Account created successfully!");
+                    Get.offAll(() => const LoginScreen());
+                  }
+                } catch (e) {
+                  auth.signOut();
+                  VxToast.show(context, msg: e.toString());
+                }
+              }
+            }
+          : null,
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF6f4e37),
+        backgroundColor: _agreeToTerms ? const Color(0xFF6f4e37) : Colors.grey,
         padding: const EdgeInsets.symmetric(vertical: 16.0),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
       ),

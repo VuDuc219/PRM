@@ -1,107 +1,154 @@
 import 'package:flutter/material.dart';
-import 'package:myapp/consts/consts.dart';
-import 'package:myapp/views/category_screen/category_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:get/get.dart';
+import 'package:myapp/services/firestore_services.dart';
 import 'package:myapp/views/category_screen/item_details.dart';
+import 'dart:developer' as developer;
 
 class CategoryDetails extends StatelessWidget {
-  final String categoryTitle;
+  final String title;
 
-  const CategoryDetails({super.key, required this.categoryTitle});
+  const CategoryDetails({Key? key, required this.title}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // This will be replaced with actual data from a database
-    final List<Map<String, String>> products =
-        productDetails[categoryTitle] ?? [];
-
+    developer.log(
+      "Fetching products for category: $title",
+      name: "CategoryDetails",
+    );
     return Scaffold(
-      backgroundColor: const Color(0xFFEFEBE9),
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const CategoryScreen()),
-            );
-          },
-        ),
         title: Text(
-          categoryTitle,
-          style: const TextStyle(fontFamily: bold, color: Colors.white),
-        ),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: GridView.builder(
-          shrinkWrap: true,
-          itemCount: products.length, // Dynamic item count
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.85,
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
-          itemBuilder: (context, index) {
-            return InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ItemDetails(item: products[index]),
-                  ),
-                );
-              },
-              child: Card(
-                elevation: 3,
-                shadowColor: Colors.black.withOpacity(0.3),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
+        ),
+        backgroundColor: Colors.deepPurple,
+        elevation: 0,
+        iconTheme: const IconThemeData(
+          color: Colors.white,
+        ), // Ensure back button is white
+      ),
+      body: FutureBuilder<QuerySnapshot>(
+        future: FirestoreServices.getProductsByCategory(title).first,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.deepPurple),
+            );
+          }
+          if (snapshot.hasError) {
+            developer.log(
+              "Error fetching products: ${snapshot.error}",
+              name: "CategoryDetails",
+              error: snapshot.error,
+            );
+            return Center(child: Text("Error: ${snapshot.error}"));
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            developer.log(
+              "No products found for category: $title",
+              name: "CategoryDetails",
+            );
+            return const Center(
+              child: Text(
+                "No products found in this category.",
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            );
+          }
+
+          final data = snapshot.data!.docs;
+          developer.log(
+            "Found ${data.length} products for category: $title",
+            name: "CategoryDetails",
+          );
+
+          return GridView.builder(
+            padding: const EdgeInsets.all(12.0),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12.0,
+              crossAxisSpacing: 12.0,
+              childAspectRatio: 0.75,
+            ),
+            itemCount: data.length,
+            itemBuilder: (context, index) {
+              var product = data[index].data() as Map<String, dynamic>;
+              product['id'] = data[index].id;
+
+              return InkWell(
+                onTap: () {
+                  Get.to(() => ItemDetails(data: product));
+                },
+                child: Card(
+                  elevation: 4,
+                  shadowColor: Colors.grey.withOpacity(0.3),
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Center(
-                          child: Image.asset(
-                            products[index]['image']!,
-                            fit: BoxFit.contain,
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(12),
+                          ),
+                          child: Image.network(
+                            (product['p_imgs'] is List &&
+                                    product['p_imgs'].isNotEmpty)
+                                ? product['p_imgs'][0]
+                                : '',
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                                  Icons.broken_image,
+                                  size: 50,
+                                  color: Colors.grey,
+                                ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        products[index]['name']!,
-                        style: const TextStyle(
-                          fontFamily: semibold,
-                          color: darkFontGrey,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        products[index]['price']!,
-                        style: const TextStyle(
-                          fontFamily: bold,
-                          color: redColor, // Using a defined color constant
-                          fontSize: 16,
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              product['p_name'] ?? 'No Name',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              (product['p_price'] is List &&
+                                      product['p_price'].isNotEmpty)
+                                  ? '${product['p_price'][0]} VND'
+                                  : 'N/A',
+                              style: const TextStyle(
+                                color: Colors.deepPurple,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            );
-          },
-        ),
+              );
+            },
+          );
+        },
       ),
     );
   }

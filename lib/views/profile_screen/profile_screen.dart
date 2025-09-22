@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:myapp/consts/consts.dart';
+import 'package:myapp/controllers/auth_controller.dart';
+import 'package:myapp/controllers/profile_controller.dart';
+import 'package:myapp/views/auth_screen/login_screen.dart';
 import 'package:myapp/views/profile_screen/components/details_card.dart';
+import 'package:velocity_x/velocity_x.dart';
 
+// Changed to StatefulWidget to resolve hot reload state issue
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -10,23 +16,216 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // State variables for user data
-  String _userName = "Dummy User";
-  final String _userEmail = "customer@example.com";
-  // In a real app, you would fetch this from a database.
-  final String _profileImagePath = 'assets/images/profile_image.png';
-
-  // Controller for the text field in the dialog
-  final TextEditingController _nameController = TextEditingController();
+  late final AuthController authController;
+  late final ProfileController profileController;
 
   @override
   void initState() {
     super.initState();
-    _nameController.text = _userName;
+    // Initialize controllers
+    authController = Get.find<AuthController>();
+    profileController = Get.find<ProfileController>();
   }
 
-  // Function to show the edit profile dialog
-  void _showEditProfileDialog(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5), // Light background color
+      body: SafeArea(
+        child: Obx(() {
+          // Show loading indicator while fetching data
+          if (profileController.isLoading.value) {
+            return const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation(Colors.brown),
+              ),
+            );
+          }
+
+          // Main profile UI
+          return Column(
+            children: [
+              // User profile section
+              _buildProfileHeader(context, profileController),
+
+              const SizedBox(height: 20),
+
+              // Details cards
+              _buildDetailsCards(context, profileController),
+
+              const SizedBox(height: 30),
+
+              // Menu options
+              _buildMenuOptions(
+                context,
+                authController,
+              ), // Pass context and auth controller
+            ],
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(
+    BuildContext context,
+    ProfileController controller,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      color: Colors.brown, // Theme color
+      child: Row(
+        children: [
+          Obx(
+            () => CircleAvatar(
+              radius: 40,
+              backgroundImage: controller.profileImageUrl.value.isNotEmpty
+                  ? NetworkImage(controller.profileImageUrl.value)
+                  : const AssetImage('assets/images/profile_placeholder.png')
+                        as ImageProvider,
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Obx(
+                  () => Text(
+                    controller.userName.value,
+                    style: const TextStyle(
+                      fontFamily: bold,
+                      fontSize: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Obx(
+                  () => Text(
+                    controller.userEmail.value,
+                    style: const TextStyle(
+                      fontFamily: regular,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit, color: Colors.white),
+            tooltip: 'Edit Profile',
+            onPressed: () => _showEditProfileDialog(context, controller),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsCards(BuildContext context, ProfileController controller) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Obx(
+        () => Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            detailsCard(
+              count: controller.cartCount.value.toString(),
+              title: "In your cart",
+              width: context.screenWidth / 3.5,
+            ),
+            detailsCard(
+              count: controller.wishlistCount.value.toString(),
+              title: "In your wishlist",
+              width: context.screenWidth / 3.5,
+            ),
+            detailsCard(
+              count: controller.orderCount.value.toString(),
+              title: "You ordered",
+              width: context.screenWidth / 3.5,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuOptions(
+    BuildContext context,
+    AuthController authController,
+  ) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 10,
+              offset: Offset(0, -5),
+            ),
+          ],
+        ),
+        child: ListView(
+          children: [
+            const SizedBox(height: 20),
+            const ListTile(
+              leading: Icon(Icons.list_alt_outlined, color: darkFontGrey),
+              title: Text(
+                "My Orders",
+                style: TextStyle(fontFamily: semibold, color: darkFontGrey),
+              ),
+            ),
+            const Divider(),
+            const ListTile(
+              leading: Icon(Icons.favorite_outline, color: darkFontGrey),
+              title: Text(
+                "My Wishlist",
+                style: TextStyle(fontFamily: semibold, color: darkFontGrey),
+              ),
+            ),
+            const Divider(),
+            const ListTile(
+              leading: Icon(Icons.message_outlined, color: darkFontGrey),
+              title: Text(
+                "Messages",
+                style: TextStyle(fontFamily: semibold, color: darkFontGrey),
+              ),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: darkFontGrey),
+              title: const Text(
+                "Log out",
+                style: TextStyle(fontFamily: semibold, color: darkFontGrey),
+              ),
+              onTap: () async {
+                await authController.signOutMethod(
+                  context,
+                ); // Pass context here
+                Get.offAll(() => const LoginScreen());
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditProfileDialog(
+    BuildContext context,
+    ProfileController controller,
+  ) {
+    final nameController = TextEditingController(
+      text: controller.userName.value,
+    );
+
     showDialog(
       context: context,
       builder: (context) {
@@ -35,28 +234,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // In a real app, you'd use an image picker here.
               GestureDetector(
                 onTap: () {
-                  // This is where you would implement image picking logic.
-                  // For now, it does nothing.
+                  controller.pickImage();
                 },
-                child: CircleAvatar(
-                  radius: 40,
-                  backgroundImage: AssetImage(_profileImagePath),
-                  child: const Align(
-                    alignment: Alignment.bottomRight,
-                    child: Icon(
-                      Icons.camera_alt,
-                      color: Colors.white,
-                      size: 20,
+                child: Obx(
+                  () => CircleAvatar(
+                    radius: 40,
+                    backgroundImage: controller.profileImageUrl.value.isNotEmpty
+                        ? NetworkImage(controller.profileImageUrl.value)
+                        : const AssetImage(
+                                'assets/images/profile_placeholder.png',
+                              )
+                              as ImageProvider,
+                    child: const Align(
+                      alignment: Alignment.bottomRight,
+                      child: Icon(
+                        Icons.camera_alt,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
               ),
               const SizedBox(height: 20),
               TextField(
-                controller: _nameController,
+                controller: nameController,
                 decoration: const InputDecoration(labelText: 'User Name'),
               ),
             ],
@@ -67,12 +271,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                // Update state and close dialog
-                setState(() {
-                  _userName = _nameController.text;
-                  // In a real app, you would also save the new image path.
-                });
+              onPressed: () async {
+                await controller.updateProfile(newName: nameController.text);
                 Navigator.pop(context);
               },
               child: const Text('Save'),
@@ -81,181 +281,5 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       },
     );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5), // Light background color
-      body: SafeArea(
-        child: Column(
-          children: [
-            // User profile section
-            Container(
-              padding: const EdgeInsets.all(20),
-              color: Theme.of(
-                context,
-              ).primaryColor, // Use primary color for the header
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundImage: AssetImage(_profileImagePath),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _userName,
-                          style: const TextStyle(
-                            fontFamily: bold,
-                            fontSize: 18,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        // FittedBox to scale the text down to fit
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            _userEmail,
-                            style: const TextStyle(
-                              fontFamily: regular,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () =>
-                        _showEditProfileDialog(context), // Open edit dialog
-                    icon: const Icon(Icons.edit, color: Colors.white),
-                  ),
-                  TextButton(
-                    onPressed: () {},
-                    child: const Text(
-                      "Log out",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: semibold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Details cards
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  detailsCard(
-                    count: "00",
-                    title: "In your cart",
-                    width: MediaQuery.of(context).size.width / 3.5,
-                  ),
-                  detailsCard(
-                    count: "00",
-                    title: "In your wishlist",
-                    width: MediaQuery.of(context).size.width / 3.5,
-                  ),
-                  detailsCard(
-                    count: "00",
-                    title: "You ordered",
-                    width: MediaQuery.of(context).size.width / 3.5,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            // Menu options
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: Offset(0, -5),
-                    ),
-                  ],
-                ),
-                child: ListView(
-                  children: [
-                    const SizedBox(height: 20),
-                    ListTile(
-                      leading: const Icon(
-                        Icons.list_alt_outlined,
-                        color: darkFontGrey,
-                      ),
-                      title: const Text(
-                        "My Orders",
-                        style: TextStyle(
-                          fontFamily: semibold,
-                          color: darkFontGrey,
-                        ),
-                      ),
-                      onTap: () {},
-                    ),
-                    const Divider(),
-                    ListTile(
-                      leading: const Icon(
-                        Icons.favorite_outline,
-                        color: darkFontGrey,
-                      ),
-                      title: const Text(
-                        "My Wishlist",
-                        style: TextStyle(
-                          fontFamily: semibold,
-                          color: darkFontGrey,
-                        ),
-                      ),
-                      onTap: () {},
-                    ),
-                    const Divider(),
-                    ListTile(
-                      leading: const Icon(
-                        Icons.message_outlined,
-                        color: darkFontGrey,
-                      ),
-                      title: const Text(
-                        "Messages",
-                        style: TextStyle(
-                          fontFamily: semibold,
-                          color: darkFontGrey,
-                        ),
-                      ),
-                      onTap: () {},
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
   }
 }

@@ -1,28 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:myapp/consts/consts.dart';
+import 'package:myapp/controllers/product_controller.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
-class ItemDetails extends StatefulWidget {
-  final Map<String, String> item;
+class ItemDetails extends StatelessWidget {
+  final Map<String, dynamic> data;
 
-  const ItemDetails({super.key, required this.item});
-
-  @override
-  State<ItemDetails> createState() => _ItemDetailsState();
-}
-
-class _ItemDetailsState extends State<ItemDetails> {
-  int _selectedSizeIndex = 1; // Default to medium
+  const ItemDetails({Key? key, required this.data}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final itemDetails = itemDetail; // Corrected this line
+    final ProductController controller = Get.put(ProductController());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.initData(data['p_price'] as List<dynamic>? ?? []);
+    });
+
+    final String productName = data['p_name'] as String? ?? 'No Name';
+    final List<dynamic> imageUrls = data['p_imgs'] as List<dynamic>? ?? [];
+    final List<dynamic> sizes = data['p_size'] as List<dynamic>? ?? [];
+    final String description =
+        data['p_desc'] as String? ?? 'No description available.';
+    final int availableStock = int.tryParse(data['p_quantity'].toString()) ?? 0;
+
+    String detailImageUrl = (imageUrls.length > 1)
+        ? imageUrls[1]
+        : (imageUrls.isNotEmpty ? imageUrls[0] : '');
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
+        ),
+        title: Text(
+          productName,
+          style: const TextStyle(color: darkFontGrey, fontFamily: bold),
         ),
         actions: [
           IconButton(
@@ -42,48 +57,119 @@ class _ItemDetailsState extends State<ItemDetails> {
               SizedBox(
                 height: 300,
                 child: Center(
-                  child: Image.asset(
-                    'assets/images/coffee_cup.png',
-                    fit: BoxFit.contain,
-                  ),
+                  child: detailImageUrl.isNotEmpty
+                      ? Image.network(detailImageUrl, fit: BoxFit.contain)
+                      : const Icon(
+                          Icons.image_not_supported,
+                          size: 100,
+                          color: Colors.grey,
+                        ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                productName,
+                style: const TextStyle(
+                  fontFamily: bold,
+                  fontSize: 24,
+                  color: darkFontGrey,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Your Rating',
+                style: TextStyle(
+                  fontFamily: bold,
+                  fontSize: 18,
+                  color: darkFontGrey,
+                ),
+              ),
+              const SizedBox(height: 10),
+              RatingBar.builder(
+                initialRating: 0,
+                minRating: 1,
+                direction: Axis.horizontal,
+                allowHalfRating: true,
+                itemCount: 5,
+                itemPadding: const EdgeInsets.symmetric(horizontal: 4.0),
+                itemBuilder: (context, _) =>
+                    const Icon(Icons.star, color: Colors.amber),
+                onRatingUpdate: (rating) {
+                  controller.updateUserRating(rating);
+                },
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: () {
+                  Get.snackbar(
+                    'Review Submitted',
+                    'You rated this product ${controller.userRating.value} stars.',
+                  );
+                },
+                child: const Text('Submit Review'),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Sizes',
+                style: TextStyle(
+                  fontFamily: bold,
+                  fontSize: 18,
+                  color: darkFontGrey,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Obx(
+                () => Wrap(
+                  spacing: 8.0,
+                  runSpacing: 8.0,
+                  children: List.generate(sizes.length, (index) {
+                    return ChoiceChip(
+                      label: Text(
+                        sizes[index].toString(),
+                        style: TextStyle(
+                          color: controller.sizeIndex.value == index
+                              ? Colors.white
+                              : Colors.black,
+                        ),
+                      ),
+                      selected: controller.sizeIndex.value == index,
+                      onSelected: (selected) {
+                        if (selected) {
+                          controller.changeSizeIndex(index);
+                        }
+                      },
+                      selectedColor: Colors.deepPurple,
+                      backgroundColor: Colors.grey[200],
+                    );
+                  }),
                 ),
               ),
               const SizedBox(height: 20),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
-                    child: Text(
-                      widget.item['name']!,
-                      style: const TextStyle(
-                        fontFamily: bold,
-                        fontSize: 24,
-                        color: darkFontGrey,
-                      ),
+                  const Text(
+                    'Quantity',
+                    style: TextStyle(
+                      fontFamily: bold,
+                      fontSize: 18,
+                      color: darkFontGrey,
                     ),
                   ),
-                  Row(
-                    children: [
-                      const Icon(Icons.star, color: golden, size: 20),
-                      const SizedBox(width: 4),
-                      Text(
-                        itemDetails['rating']!,
-                        style: const TextStyle(
-                          fontFamily: bold,
-                          fontSize: 16,
-                          color: darkFontGrey,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '(${itemDetails['reviews']!})',
-                        style: const TextStyle(
-                          fontFamily: regular,
-                          fontSize: 16,
-                          color: fontGrey,
-                        ),
-                      ),
-                    ],
+                  const Spacer(),
+                  IconButton(
+                    onPressed: controller.decreaseQuantity,
+                    icon: const Icon(Icons.remove_circle_outline),
+                  ),
+                  Obx(
+                    () => Text(
+                      '${controller.quantity.value}',
+                      style: const TextStyle(fontSize: 18, fontFamily: bold),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () =>
+                        controller.increaseQuantity(availableStock),
+                    icon: const Icon(Icons.add_circle_outline),
                   ),
                 ],
               ),
@@ -98,64 +184,13 @@ class _ItemDetailsState extends State<ItemDetails> {
               ),
               const SizedBox(height: 10),
               Text(
-                itemDetails['description']!,
+                description,
                 style: const TextStyle(
                   fontFamily: regular,
                   fontSize: 16,
                   color: fontGrey,
                   height: 1.5,
                 ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Size',
-                style: TextStyle(
-                  fontFamily: bold,
-                  fontSize: 18,
-                  color: darkFontGrey,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(3, (index) {
-                  final sizes = ['S', 'M', 'L'];
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedSizeIndex = index;
-                      });
-                    },
-                    child: Container(
-                      width: 80,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: _selectedSizeIndex == index
-                            ? golden.withOpacity(0.2)
-                            : Colors.grey[200],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _selectedSizeIndex == index
-                              ? golden
-                              : Colors.grey[300]!,
-                          width: 2,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          sizes[index],
-                          style: TextStyle(
-                            fontFamily: bold,
-                            fontSize: 16,
-                            color: _selectedSizeIndex == index
-                                ? golden
-                                : darkFontGrey,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
               ),
               const SizedBox(height: 30),
             ],
@@ -178,33 +213,33 @@ class _ItemDetailsState extends State<ItemDetails> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Price',
-                  style: TextStyle(
-                    fontFamily: regular,
-                    fontSize: 16,
-                    color: fontGrey,
-                  ),
+            Obx(
+              () => Text(
+                '${controller.totalPrice.value} VND',
+                style: const TextStyle(
+                  fontFamily: bold,
+                  fontSize: 24,
+                  color: redColor,
                 ),
-                Text(
-                  widget.item['price']!,
-                  style: const TextStyle(
-                    fontFamily: bold,
-                    fontSize: 24,
-                    color: redColor,
-                  ),
-                ),
-              ],
+              ),
             ),
             SizedBox(
               width: 180,
               height: 50,
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                  final String selectedSize = sizes.isNotEmpty
+                      ? sizes[controller.sizeIndex.value].toString()
+                      : 'Default Size';
+                  controller.addToCart(
+                    title: productName,
+                    img: detailImageUrl,
+                    size: selectedSize,
+                    qty: controller.quantity.value,
+                    tprice: controller.totalPrice.value,
+                    context: context,
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: golden,
                   shape: RoundedRectangleBorder(

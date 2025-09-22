@@ -1,110 +1,112 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:myapp/consts/consts.dart';
+import 'package:myapp/models/category_model.dart';
 import 'package:myapp/views/category_screen/category_details.dart';
-import 'package:myapp/views/home_screen/home.dart';
+import 'dart:developer' as developer;
 
 class CategoryScreen extends StatelessWidget {
-  const CategoryScreen({super.key});
+  const CategoryScreen({Key? key}) : super(key: key);
+
+  // Function to load and parse the JSON data
+  Future<List<Category>> _loadCategories() async {
+    try {
+      final String jsonString = await rootBundle.loadString('lib/services/category_model.json');
+      final categoryModel = categoryModelFromJson(jsonString);
+      return categoryModel.categories;
+    } catch (e) {
+      developer.log("Error loading categories: $e", name: "CategoryScreen");
+      return []; // Return an empty list on error
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFEFEBE9), // A light coffee-cream color
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const Home()),
-            );
-          },
-        ),
         title: const Text(
-          'Categories',
-          style: TextStyle(fontFamily: bold, color: Colors.white),
+          "Categories",
+          style: TextStyle(fontFamily: bold, color: darkFontGrey),
         ),
-        backgroundColor: Theme.of(
-          context,
-        ).colorScheme.primary, // Using the primary color from theme
+        backgroundColor: Colors.white,
         elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: GridView.builder(
-          shrinkWrap: true,
-          itemCount: categories.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.8, // Adjusted for a more compact look
-          ),
-          itemBuilder: (context, index) {
-            return InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CategoryDetails(
-                      categoryTitle: categories[index]['name']!,
+      body: FutureBuilder<List<Category>>(
+        future: _loadCategories(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text("Could not load categories from JSON."));
+          }
+
+          final categories = snapshot.data!;
+
+          return Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: GridView.builder(
+              shrinkWrap: true,
+              itemCount: categories.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                mainAxisExtent: 200,
+              ),
+              itemBuilder: (context, index) {
+                final category = categories[index];
+                return InkWell(
+                  onTap: () {
+                    Get.to(() => CategoryDetails(title: category.name));
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.2),
+                          spreadRadius: 2,
+                          blurRadius: 5,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset(
+                          // This assumes you have an image in assets named after the category
+                          // e.g., assets/images/cappuccino.png
+                          'assets/images/${category.name.toLowerCase().replaceAll(' ', '_')}.png',
+                          height: 120,
+                          width: 200,
+                          fit: BoxFit.contain,
+                           errorBuilder: (context, error, stackTrace) {
+                                // Fallback icon if image is not found
+                                return const Icon(Icons.category, size: 80, color: Colors.grey);
+                           }
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          category.name,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: semibold,
+                            color: darkFontGrey,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
               },
-              child: Card(
-                elevation: 3,
-                shadowColor: Colors.black.withOpacity(0.3),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      Expanded(
-                        flex: 3, // Give more space to the image
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(12),
-                            topRight: Radius.circular(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Image.asset(
-                              categories[index]['image']!,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 1, // Less space for the text
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                          child: Text(
-                            categories[index]['name']!,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: semibold,
-                              color: darkFontGrey,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:myapp/controllers/auth_controller.dart';
+import 'package:myapp/controllers/profile_controller.dart'; // Import ProfileController
 import 'package:myapp/views/auth_screen/signup_screen.dart';
 import 'package:myapp/views/home_screen/home.dart';
+import 'package:velocity_x/velocity_x.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,6 +16,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final AuthController _authController = Get.put(AuthController());
 
   @override
   Widget build(BuildContext context) {
@@ -67,74 +73,86 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildTextField(
-            'Email',
-            _emailController,
-            Icons.email_outlined,
-            false,
-          ),
-          const SizedBox(height: 20),
-          _buildTextField(
-            'Password',
-            _passwordController,
-            Icons.lock_outline,
-            true,
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () {},
-              child: const Text(
-                'Forgot Password?',
-                style: TextStyle(color: Color(0xFF6f4e37)),
-              ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildTextField(
+              'Email',
+              _emailController,
+              Icons.email_outlined,
+              false,
             ),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {
-              // Chỉ test UI, chưa cần check email/password
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const Home()),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6f4e37),
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
-              ),
+            const SizedBox(height: 20),
+            _buildTextField(
+              'Password',
+              _passwordController,
+              Icons.lock_outline,
+              true,
             ),
-            child: const Text(
-              'Log in',
-              style: TextStyle(fontSize: 18, color: Colors.white),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text("or, create a new account"),
-              TextButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SignupScreen()),
-                ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () {},
                 child: const Text(
-                  'Sign up',
-                  style: TextStyle(
-                    color: Color(0xFF6f4e37),
-                    fontWeight: FontWeight.bold,
+                  'Forgot Password?',
+                  style: TextStyle(color: Color(0xFF6f4e37)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () async {
+                if (_formKey.currentState!.validate()) {
+                  final userCredential = await _authController.loginMethod(
+                    context: context,
+                    email: _emailController.text,
+                    password: _passwordController.text,
+                  );
+
+                  if (userCredential != null) {
+                    // Put ProfileController after successful login
+                    Get.put(ProfileController());
+                    VxToast.show(context, msg: "Logged in successfully");
+                    Get.offAll(() => const Home());
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6f4e37),
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+              ),
+              child: const Text(
+                'Log in',
+                style: TextStyle(fontSize: 18, color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text("or, create a new account"),
+                TextButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SignupScreen()),
+                  ),
+                  child: const Text(
+                    'Sign up',
+                    style: TextStyle(
+                      color: Color(0xFF6f4e37),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -156,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
+        TextFormField(
           controller: controller,
           obscureText: isObscure,
           decoration: InputDecoration(
@@ -170,6 +188,12 @@ class _LoginScreenState extends State<LoginScreen> {
               borderRadius: BorderRadius.circular(8.0),
             ),
           ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return "$label cannot be empty";
+            }
+            return null;
+          },
         ),
       ],
     );
